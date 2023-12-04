@@ -194,10 +194,43 @@ def getdem(key,h5file='descending.h5'):
     
     print('Start integration for', key)
     grads=(amp.T*ma).T+np.outer(mb,np.ones(fampcp[0,:].shape))
+    
     demdef,filas,c=getdemdef1(key,dem,grads,std,lim=False)
     print('Finished integration for', key)
     
     return demdef
+
+def getgrad(key,h5file='descending.h5'):
+
+    h5i = h5py.File(h5file,'r')
+    dem=h5i[key+'/dem'][:]
+    grd=h5i[key+'/grad'][:]
+    amp=h5i[key+'/amps'][:]
+    lon=h5i[key+'/lon'][:]
+    lat=h5i[key+'/lat'][:]
+    std=np.load('stdamps.npy')
+    h5i.close()
+
+    shade=get_shadow(amp,lon,lat)
+
+    ampcp=np.copy(amp)
+    grdcp=np.copy(grd)
+
+    ampcp[grdcp>10]=np.nan
+    grdcp[grdcp>10]=np.nan
+
+    fampcp=filtrar1(ampcp)
+    fgrdcp=filtrar1(grdcp)
+    
+    print('Start gradient for', key)
+    tracesa,tracesb=getab(key,fampcp,fgrdcp,std)
+    ma=np.nanmean(tracesa,axis=1)
+    mb=np.nanmean(tracesb,axis=1)
+    
+    grads=(amp.T*ma).T+np.outer(mb,np.ones(fampcp[0,:].shape))
+    print('Finished gradient for', key)
+    
+    return grads
 
 def calc_std(h5file='descending.h5'):
     h5i=h5py.File(h5file,'r')

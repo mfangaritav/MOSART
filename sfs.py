@@ -41,6 +41,20 @@ os.makedirs(insar_dir, exist_ok=True)
 # Always start at the notebook directory    
 os.chdir(tutorial_home_dir)
 
+def calc_std(stack):
+    fd = h5py.File(stack, mode="r")
+    scenes = list(fd.keys())
+    r, c = fd[scenes[0]]["amps"].shape
+    cube = np.zeros((len(scenes), r, c))
+    
+    for i, key in enumerate(fd.keys()):
+        cube[i,:,:] = fd[key]["amps"][:]
+        
+    fd.close()
+    
+    std = np.std(cube, axis=0)
+    
+    np.save("stdamps.npy", std)
 
 def preprocessing(lons,lats,projections='projections.h5',path='D'):
     if path=='D':
