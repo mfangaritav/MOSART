@@ -1,4 +1,4 @@
-# MoSARt (Morphology from SAR technique)
+# Morphology from SAR tool
 
 ![mosart_icon](https://github.com/user-attachments/assets/8512c53c-c44a-4c91-9c96-89885f806100)
 
