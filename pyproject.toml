@@ -1,0 +1,35 @@
+[build-system]
+requires = [
+    "setuptools>=61.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mosart"
+version = "1.0.0"
+description = "Morphology from SAR tool"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Mario Angarita Vargas", email = "mfangaritasr@alaska.edu"},
+    {name = "Ronni Grapenthin", email = "rgrapenthin@alaska.edu"},
+    {name = "Franz Meyer", email = "fjmeyer@alaska.edu"},
+    {name = "Simon Plank", email = "simon.Plank@dlr.de"},
+    {name = "Michael Christoffersen", email = "mchristoffersen@alaska.edu"},
+]
+dependencies = [
+    "asf_search>=6.4.0",
+    "h5py == 3.*",
+    "matplotlib == 3.*",
+    "numpy == 1.*",
+    "scipy == 1.*",
+    "scikit-image == 0.22.0",
+    "utm == 0.7.0",
+    "jupyterlab == 4.*",
+]
+
+[project.urls]
+documentation = "https://github.com/mfangaritav/MOSART"
+repository = "https://github.com/mfangaritav/MOSART"
