@@ -15,6 +15,11 @@ from scipy.ndimage import gaussian_filter
 from skimage.restoration import denoise_nl_means, estimate_sigma
 
 
+gdal.UseExceptions()
+
+log = logging.getLogger(__name__)
+
+
 def coreg_alos(reference_scene: str, secondary_scene: str, download: bool =True) -> Path:
     """Create a Stripmap interferogram
 
