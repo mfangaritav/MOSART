@@ -28,7 +28,6 @@ dependencies = [
     "scipy == 1.*",
     "scikit-image == 0.22.0",
     "utm == 0.7.0",
-    "jupyterlab == 4.*",
 ]
 
 [project.urls]
