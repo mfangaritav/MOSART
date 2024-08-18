@@ -1,6 +1,6 @@
 ![mosart_icon](https://github.com/user-attachments/assets/8512c53c-c44a-4c91-9c96-89885f806100)
 
-# Morphology from SAR tool
+# Morphology from SAR toolbox
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6784982.svg)](https://doi.org/10.5281/zenodo.6784982)
 <a target="_blank" href="https://colab.research.google.com/github/mfangaritav/MOSART/blob/main/Process_ALOS.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
@@ -10,7 +10,7 @@
 
 ## What is MoSARt?
 
-The Morphology from SAR tool (MoSARt) is a toolbox to retrieve morphology changes from SAR amplitude images.
+The Morphology from SAR toolbox (MoSARt) is a set of python scripts to retrieve morphology changes from SAR amplitude images.
 
 ![workflow_mosart](https://github.com/user-attachments/assets/4e99432b-1770-4896-9ffc-31def03f0aed)
 
@@ -47,4 +47,4 @@ This repository contains a [notebook](Process_ALOS.ipynb) to illustrate the full
 
 MoSARt was used to retrieve the elevation changes in the 2019-2020 Shishaldin eruption:
 
-- Angarita, M., Grapenthin, R., Plank, S., Meyer, F. J., & Dietterich, H. (2022). Quantifying large‐scale surface change using SAR amplitude images: Crater morphology changes during the 2019–2020 Shishaldin volcano eruption. Journal of Geophysical Research: Solid Earth, 127(8), e2022JB024344.
+- Angarita, M., Grapenthin, R., Plank, S., Meyer, F. J., & Dietterich, H. (2022). Quantifying large‐scale surface change using SAR amplitude images: Crater morphology changes during the 2019–2020 Shishaldin volcano eruption. Journal of Geophysical Research: Solid Earth, 127(8), e2022JB024344. https://doi.org/10.1029/2022JB024344
