@@ -22,6 +22,7 @@ authors = [
 dependencies = [
     "asf_search>=6.4.0",
     "h5py == 3.*",
+    "gdal",
     "matplotlib == 3.*",
     "numpy == 1.*",
     "scipy == 1.*",
