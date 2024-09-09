@@ -23,7 +23,7 @@ We recommend using Anaconda or Miniconda to create an environment in which to in
 
 ```console
 conda create --n mosart
-pip install git+https://github.com/mfangaritav/MOSART.git
+pip install mosart
 ```
 
 ## Full Installation
