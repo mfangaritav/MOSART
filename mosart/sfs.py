@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 import os
 import subprocess
+import sys
 from functools import partial
 from pathlib import Path
 from shutil import copyfile, move
@@ -14,21 +15,18 @@ from osgeo import gdal
 from scipy.ndimage import gaussian_filter
 from skimage.restoration import denoise_nl_means, estimate_sigma
 
-
 gdal.UseExceptions()
 
 log = logging.getLogger(__name__)
 
 
-def coreg_alos(reference_scene: str, secondary_scene: str, download: bool =True) -> Path:
+def coreg_alos(reference_scene: str, secondary_scene: str, roi: list =None, download: bool =True) -> Path:
     """Create a Stripmap interferogram
 
     Args:
         reference_scene: Reference scene name
         secondary_scene: Secondary scene name
-
-    Returns:
-        Path to the output files
+        download: If True it will download a dem, if False it will look for the file dem/full_res.dem.wgs84
     """
     import zipfile
     from hyp3_isce2 import stripmapapp_alos as stripmapapp
@@ -45,7 +43,6 @@ def coreg_alos(reference_scene: str, secondary_scene: str, download: bool =True)
     scenes = sorted([reference_scene, secondary_scene])
     reference_scene = scenes[0]
     secondary_scene = scenes[1]
-    
     products = asf_search.search(
         granule_list=[reference_scene, secondary_scene],
         processingLevel="L1.0",
@@ -61,6 +58,7 @@ def coreg_alos(reference_scene: str, secondary_scene: str, download: bool =True)
     products = (reference_product, secondary_product)
     polygons = [Polygon(product.geometry['coordinates'][0]) for product in products]
     insar_roi = polygons[0].intersection(polygons[1]).bounds
+    print(insar_roi)
     if download:
         dem_path = download_dem_for_isce2(insar_roi, dem_name='glo_30', dem_dir=Path('dem'), buffer=0)
         urls = [product.properties['url'] for product in products]
@@ -83,19 +81,46 @@ def coreg_alos(reference_scene: str, secondary_scene: str, download: bool =True)
     secondary_image = get_product_file(secondary_product, 'IMG-')
     secondary_leader = get_product_file(secondary_product, 'LED-')
 
+    if roi is None:
+        roi=insar_roi
+    else:
+        roi=(roi[0],roi[1],roi[2],roi[3])
+
     config = stripmapapp.StripmapappConfig(
         reference_image=reference_image,
         reference_leader=reference_leader,
         secondary_image=secondary_image,
         secondary_leader=secondary_leader,
-        roi=insar_roi,
+        roi=roi,
         dem_filename=str(dem_path),
         azimuth_looks=1,
         range_looks=1,
     )
     config_path = config.write_template('stripmapApp.xml')
+    with open('stripmapApp.xml', 'r') as file:
+        content = file.read()
+    pre="<property name=\"do rubbersheetingAzimuth\">True</property>"
+    post="<property name=\"reference doppler method\">useDOPIQ</property>"
+    modified_content = content.replace(pre,post)
 
-    stripmapapp.run_stripmapapp(start='startup', end='sub_band_resample', config_xml=config_path)
+    with open('stripmapApp.xml', 'w') as file:
+        file.write(modified_content)
+
+    with open('stripmapApp.xml', 'r') as file:
+        content = file.read()
+
+    pre="<property name=\"do rubbersheetingRange\">True</property>"
+    post="<property name=\"secondary doppler method\">useDOPIQ</property>"
+    modified_content = content.replace(pre, post)
+
+    with open('stripmapApp.xml', 'w') as file:
+        file.write(modified_content)
+        
+    try:
+       multiprocessing.set_start_method(None, force=True)
+    except RuntimeError:
+       pass
+    stripmapapp.run_stripmapapp(start='startup', end='refined_resample', config_xml=config_path)
     os.chdir(cwd)
 
 
@@ -116,9 +141,7 @@ def coreg_tops_burst(
         azimuth_looks: Number of azimuth looks
         range_looks: Number of range looks
         apply_water_mask: Whether to apply a pre-unwrap water mask
-
-    Returns:
-        Path to results directory
+        download: If True it will download a dem, if False it will look for the file dem/full_res.dem.wgs84
     """
     from hyp3_isce2 import topsapp
     from hyp3_isce2.burst import download_bursts, get_burst_params, get_isce2_burst_bbox, get_region_of_interest
@@ -223,17 +246,35 @@ def coreg_tops_burst(
 
 
 def get_product_file(product: asf_search.ASFProduct, file_prefix: str) -> str:
+    """Path of downloaded file
+
+    Args:
+        product: Result from the asf_search query
+        file_prefix: Prefix of file of interest (e.g., IMG-, LED-)
+
+    Returns:
+        Path of downloaded file
+    """
     paths = glob.glob(str(Path(product.properties['fileID']) / f'{file_prefix}*'))
     print(product.properties['fileID'])
     assert len(paths) > 0
     return paths[0]
 
 
-def preprocessing(lons=None, lats=None, xs=None, ys=None, projections='projections.h5', path='D',sigma_amp=30, patch_kw=None, gaussian=False):
-    if path=='D':
-        output='descending.h5'
-    else:
-        output='ascending.h5'
+def preprocessing(lons=None, lats=None, xs=None, ys=None, projections='projections.h5', output='preprocessed.h5',sigma_amp=30, patch_kw=None, gaussian=False):
+    """Preprocessing of amplitude images to crop the amplitude, DEM and longitude and latitude files according to the bounding box
+
+    Args:
+        lons: longitudes of bounding box in the format [minlon, maxlon]
+        lats: latitudes of bounding box in the format [minlat, maxlat]
+        xs: range coordinates of the bounding box in the format [minrange, maxrange] (note: if this is defined there's no need to define lons and lats)
+        ys: azimuth coordinates of the bounding box in the format [minazimuth, maxazimuth] (note: if this is defined there's no need to define lons and lats)
+        projections: name of h5file that will contain the coregistered dem, amplitude images and longitude and latitude files.
+        output: file name for the output h5 file
+        sigma_amp: non-local means filter strength on the amplitude image
+        patch_kw: dictionary with the keys 'patch_size' and 'patch_distance', which are the spatial filter strength in pixels
+        gaussian: If True a gaussian filter will be applied after the non-local means filter
+    """
     if not (lons is None or lats is None) and not (xs is None or ys is None):
         raise Exception('You have geographic and radar coordinates please choose one')
     
@@ -255,7 +296,7 @@ def preprocessing(lons=None, lats=None, xs=None, ys=None, projections='projectio
         h5i.close()
 
         if not lons is None or not lats is None:
-            x0,y0,xsizet,ysizet=get_box2(lonrdr,latrdr,lons=lons,lats=lats,path=path)
+            x0,y0,xsizet,ysizet=get_box(lonrdr,latrdr,lons=lons,lats=lats)
         else:
             x0=xs[0]
             y0=ys[0]
@@ -295,12 +336,19 @@ def preprocessing(lons=None, lats=None, xs=None, ys=None, projections='projectio
         h5o.close()
 
 
-def coregistration_alos(alos_list, output='projections_alos.h5',index=1):
+def coregistration_alos(alos_list, output='projections_alos.h5',roi=None,index=1):
+    """Coregistration of ALOS images
+
+    Args:
+        alos_list: text file with the dates and scene names (e.g., '20070705,ALPSRP076921060') 
+        output: name of the h5file that will contain the coregistered dem, amplitude images and longitude and latitude files
+        index: initial index of the reference scene (default=1) useful to add new coregistered amplitude images
+    """
     lista = open(alos_list, 'r')
     lineas = lista.readlines()
     lista.close()
     fechas = sorted(list(set([linea.split(',')[0] for linea in lineas])))
-    lineas = sorted(list(set([linea.split(',')[1][0:-1] for linea in lineas])))
+    lineas = sorted(list(set([linea.split(',')[1][0:15] for linea in lineas])))
 
     for i,linea in enumerate(lineas[index::]):
         reference = lineas[0]
@@ -308,12 +356,12 @@ def coregistration_alos(alos_list, output='projections_alos.h5',index=1):
         fecha_ref=fechas[0]
         fecha_sec=fechas[index+i]
         if i==0:
-            coreg_alos(reference, secondary)
+            coreg_alos(reference, secondary, roi=roi)
             geom_folder = './coreg/geometry'
             demrdr=readdata(glob.glob(geom_folder+'/z*.vrt')[0])
             lonrdr=readdata(glob.glob(geom_folder+'/lon*.vrt')[0])
             latrdr=readdata(glob.glob(geom_folder+'/lat*.vrt')[0])
-            folder_ref = './coreg/reference_slc'
+            folder_ref = './coreg/reference_slc_crop'
             amps,angles=readcomplexdata(folder_ref+'/reference.slc.vrt')
             folder_sec = './coreg/coregisteredSlc'
             amps1,angles1=readcomplexdata(folder_sec+'/refined_coreg.slc.vrt')
@@ -325,7 +373,7 @@ def coregistration_alos(alos_list, output='projections_alos.h5',index=1):
             h5f.create_dataset(fecha_sec, data=amps1, compression="gzip")
             h5f.close()
         else:
-            coreg_alos(reference, secondary, download=False)
+            coreg_alos(reference, secondary, roi=roi, download=False)
             folder_sec = './coreg/coregisteredSlc'
             amps,angles=readcomplexdata(folder_sec+'/refined_coreg.slc.vrt')
             h5f = h5py.File('./'+output, 'a')
@@ -339,6 +387,13 @@ def coregistration_alos(alos_list, output='projections_alos.h5',index=1):
 
 
 def coregistration_bursts(bursts_list, output='projections.h5',index=1):
+    """Coregistration of Sentinel-1 bursts
+
+    Args:
+        bursts_list: text file with burst names (e.g., 'S1_202224_IW2_20160721T045637_VV_17A3-BURST') 
+        output: name of the h5file that will contain the coregistered dem, amplitude images and longitude and latitude files
+        index: initial index of the reference scene (default=1) useful to add new coregistered amplitude images
+    """
     lista = open(bursts_list, 'r')
     lineas = lista.readlines()
     lista.close()
@@ -387,16 +442,30 @@ def coregistration_bursts(bursts_list, output='projections.h5',index=1):
     subprocess.call('rm -rf coreg', shell=True)
 
 
-def coregistration(output='projections.h5',index=1):
-    archivos=sorted(glob.glob('./data/slcs1/*'))
+def coregistration(output='projections.h5',path=None,index=1):
+    """Coregistration of TerraSAR-X images
+
+    Args:
+        output: name of the h5file that will contain the coregistered dem, amplitude images and longitude and latitude files
+        path: folder path with the SLC products
+        index: initial index of the reference scene (default=1) useful to add new coregistered amplitude images
+    """
+    if path is None:
+        archivos=sorted(glob.glob('./data/slcs1/*'))
+    else:
+        archivos=sorted(glob.glob(path+'/*'))
     for i in range(len(archivos[index::])):
         i+=index
         basename1=os.path.basename(archivos[0])
         fecha1=basename1.split('______')[1].split('_')[3].split('T')[0]
-        file1='../data/slcs1/'+basename1+'/'+basename1+'.xml'
+        if path is None:
+            prefix='../data/slcs1/'
+        else:
+            prefix=path+'/'
+        file1=prefix+basename1+'/'+basename1+'.xml'
         basename2=os.path.basename(archivos[i])
         fecha2=basename2.split('______')[1].split('_')[3].split('T')[0]
-        file2='../data/slcs1/'+basename2+'/'+basename2+'.xml'
+        file2=prefix+basename2+'/'+basename2+'.xml'
         try:
             print('insar of ',file1,file2)
             insar(file1,file2)
@@ -419,45 +488,6 @@ def coregistration(output='projections.h5',index=1):
             h5f.close()
         except:
             continue
-
-
-def get_box2(lonrdr,latrdr,lons=[-163.977,-163.967],lats=[54.7535,54.7585],path='D'):
-    mask=get_mask(lonrdr,path)
-    loncp=np.copy(lonrdr)*mask
-    latcp=np.copy(latrdr)*mask
-    cond1=np.logical_and(loncp>=lons[0],loncp<=lons[1])
-    cond2=np.logical_and(latcp>=lats[0],latcp<=lats[1])
-    cond3=np.logical_and(cond1,cond2)
-    cond4=np.logical_not(np.isnan(mask))
-    cond=np.logical_and(cond3,cond4)
-    maxi=0
-    mini=100000
-    for i in range(int(cond.shape[1]-1)):
-        f=cond.shape[1]-1-i
-        if np.sum(cond[:,i]*cond[:,i+1])>0 and mini==100000:
-            mini=i
-        if np.sum(cond[:,f]*cond[:,f-1])>0 and maxi==0:
-            maxi=f
-        if not maxi==0 and not mini==100000:
-            break
-    x0=mini
-    xf=maxi
-    xsize=xf-x0
-    maxi=0
-    mini=100000
-    for i in range(int(cond.shape[0]-1)):
-        f=cond.shape[0]-1-i
-        if np.sum(cond[i,:]*cond[i+1,:])>0 and mini==100000:
-            mini=i
-        if np.sum(cond[f,:]*cond[f-1,:])>0 and maxi==0:
-            maxi=f
-        if not maxi==0 and not mini==100000:
-            break
-    y0=mini
-    yf=maxi
-    ysize=yf-y0
-    #print(x0,y0,xsize,ysize)
-    return x0,y0,xsize,ysize
 
 
 def readdata(GDALfilename, band=1, background=None,
@@ -505,6 +535,13 @@ def readcomplexdata(GDALfilename):
 
 def insar(file1,file2,name='temporal'):
     print('insar of ',file1,file2)
+    isce_path=None
+    for path in sys.path:
+        if 'site-packages' in path and 'envs' in path:
+            isce_path=path+'isce/applications/'
+            break
+    if not os.path.exists(isce_path):
+        raise Exception('ISCE distribution has not been found!!')
     if os.path.exists(name):
         subprocess.call('rm -rf '+name,shell=True)
     subprocess.call('cp -r template '+name,shell=True)
@@ -512,7 +549,7 @@ def insar(file1,file2,name='temporal'):
     modify_xml(name+'/secondary.xml',file2)
     cwd=os.getcwd()
     os.chdir('./'+name+'/')
-    subprocess.call('/home/jovyan/.local/envs/insar_analysis/bin/python /home/jovyan/.local/envs/insar_analysis/lib/python3.8/site-packages/isce/applications/stripmapApp.py ./stripmapApp.xml',shell=True)
+    subprocess.call(sys.executable+' '+isce_path+'/stripmapApp.py ./stripmapApp.xml',shell=True)
     os.chdir(cwd)
 
 
@@ -521,6 +558,16 @@ def ll2rc(lons,lats,lon,lat):
     minpos=np.argwhere(distances==np.nanmin(distances))
     return minpos
 
+def get_box(lonrdr,latrdr,lons=[-163.977,-163.967],lats=[54.7535,54.7585]):
+    y2,x2=ll2rc(lonrdr,latrdr,lons[0],lats[0])[0]
+    y3,x3=ll2rc(lonrdr,latrdr,lons[1],lats[1])[0]
+    x0=np.min([x2,x3])
+    y0=np.min([y2,y3])
+    x1=np.max([x2,x3])
+    y1=np.max([y2,y3])
+    xsize=x1-x0
+    ysize=y1-y0
+    return x0,y0,xsize,ysize
 
 def georeference(pre_stack,array,pixel_size=0.0001):
     h5i=h5py.File(pre_stack,'r')
