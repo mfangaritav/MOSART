@@ -13,7 +13,8 @@
 
 The Morphology from SAR toolbox (MoSARt) is a set of python scripts to retrieve morphology changes from SAR amplitude images.
 
-![workflow_mosart](https://github.com/user-attachments/assets/4e99432b-1770-4896-9ffc-31def03f0aed)
+![mosart_flow](https://github.com/user-attachments/assets/ed2ccd72-6176-478b-b659-7ab75046195d)
+
 
 The user needs to provide a set of coregistered amplitude images and a Digital Elevation Model in radar coordinates,
 the user can also provide longitude and latitude datasets to georeference the results.
