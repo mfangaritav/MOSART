@@ -1,4 +1,5 @@
-![mosart_icon](https://github.com/user-attachments/assets/8512c53c-c44a-4c91-9c96-89885f806100)
+![mosart_icon](https://github.com/user-attachments/assets/01c5cd84-c9a7-4412-808a-185157510e6b)
+
 
 # Morphology from SAR toolbox
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6784982.svg)](https://doi.org/10.5281/zenodo.6784982)
