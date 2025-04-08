@@ -490,11 +490,19 @@ def coregistration(output='projections.h5',path=None,index=1):
             continue
 
 
-def readdata(GDALfilename, band=1, background=None,
-             datamin=None, datamax=None,
-             interpolation='nearest',
+def readdata(GDALfilename, band=1, background=True,
              nodata = None):
-    
+    """Read SLC images preprocessed with ISCE
+
+    Args:
+        GDALfilename: input file name
+        band: number of band to read (1 for amplitude, 2 for phase)
+        background: mask values that are equal to zero
+        nodata: mask entries equal to this value
+
+    Returns:
+        Array with the data values
+    """
     # Read the data into an array
     ds = gdal.Open(GDALfilename, gdal.GA_ReadOnly)
     data = ds.GetRasterBand(band).ReadAsArray()
@@ -508,7 +516,7 @@ def readdata(GDALfilename, band=1, background=None,
         pass
 
     # put all zero values to nan and do not plot nan
-    if background is None:
+    if background:
         try:
             data[data==0]=np.nan
         except:
@@ -518,6 +526,14 @@ def readdata(GDALfilename, band=1, background=None,
 
 
 def readcomplexdata(GDALfilename):
+    """Read SLC images preprocessed with ISCE
+
+    Args:
+        GDALfilename: input file name
+
+    Returns:
+        Arrays with real and complex values
+    """
     # Load the data into numpy array
     ds = gdal.Open(GDALfilename, gdal.GA_ReadOnly)
     slc = ds.GetRasterBand(1).ReadAsArray()
@@ -534,6 +550,13 @@ def readcomplexdata(GDALfilename):
 
 
 def insar(file1,file2,name='temporal'):
+    """Interferometry with ISCE between two SLCs
+
+    Args:
+        file1: file name for the reference image
+        file2: file name for the secondary image
+        name: folder name that contains the xml templates for stripmap processing (default="temporal")
+    """
     print('insar of ',file1,file2)
     isce_path=None
     for path in sys.path:
@@ -554,11 +577,33 @@ def insar(file1,file2,name='temporal'):
 
 
 def ll2rc(lons,lats,lon,lat):
+    """Convert lat/lon coordinates from radar coordinates
+
+    Args:
+        lons: array of longitude coordinates in radar coordinates
+        lats: array of latitude coordinates in radar coordinates
+        lon: input longitude coordinate
+        lat: input latitude coordinate
+        
+    Returns:
+        Tuple with respective radar coordinates
+    """
     distances=np.sqrt((lons-lon)**2+(lats-lat)**2)
     minpos=np.argwhere(distances==np.nanmin(distances))
     return minpos
 
 def get_box(lonrdr,latrdr,lons=[-163.977,-163.967],lats=[54.7535,54.7585]):
+    """Get lat/lon bounding box in radar coordinates
+
+    Args:
+        lonrdr: array of longitude coordinates in radar coordinates
+        latrdr: array of latitude coordinates in radar coordinates
+        lons: longitude coordinates of the bounding box in format [minlon,maxlon]
+        lats: latitude coordinates of the bounding box in format [minlat,maxlat]
+        
+    Returns:
+        Upper left radar coordinate and size of bounding box 
+    """
     y2,x2=ll2rc(lonrdr,latrdr,lons[0],lats[0])[0]
     y3,x3=ll2rc(lonrdr,latrdr,lons[1],lats[1])[0]
     x0=np.min([x2,x3])
@@ -570,6 +615,16 @@ def get_box(lonrdr,latrdr,lons=[-163.977,-163.967],lats=[54.7535,54.7585]):
     return x0,y0,xsize,ysize
 
 def georeference(pre_stack,array,pixel_size=0.0001):
+    """Georeference stack and array with same coordinate system
+
+    Args:
+        pre_stack: file name of h5 file with amplitude images, dem and longitude and latitude arrays in radar coordinates 
+        array: array to georeference
+        pixel_size: pixel size for the georeferenced grid
+        
+    Returns:
+        Georeferenced array
+    """
     h5i=h5py.File(pre_stack,'r')
     keys=[key for key in h5i.keys() if key.isdigit()]
     lons=h5i['lon'][:]
@@ -604,13 +659,18 @@ def georeference(pre_stack,array,pixel_size=0.0001):
 
 
 def calc_std(h5file='descending.h5'):
+    """Calculates standard deviation of amplitude images through time
+
+    Args:
+        h5file: file name of h5 file with amplitude images, dem and longitude and latitude arrays in radar coordinates 
+    """
     h5i=h5py.File(h5file,'r')
-    llaves=sorted([key for key in h5i.keys()])
+    llaves=sorted([key for key in h5i.keys() if key.isdigit()])
     h5i.close()
     amps=[]
     for i,key in enumerate(llaves):
         h5i = h5py.File(h5file,'r')
-        ampscp=h5i[key+'/amps'][:]
+        ampscp=h5i[key][:]
         h5i.close()
         amps.append(ampscp)
 

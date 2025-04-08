@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jun 14 13:01:52 2021
-
-@author: elfer
-"""
 import numpy as np
 import matplotlib.pyplot as plt
 import h5py
@@ -19,6 +13,17 @@ from functools import partial
 
 
 def getdem(key,h5file='descending.h5',weight=None,water=None):
+    """Calculates elevation map from amplitude image
+
+    Args:
+        key: numeric key with date of amplitude image
+        h5file: input h5 file with amplitude, dem and longitude and latitude data
+        weight: array with weights for the pixels in the inversion
+        water: mask with that indicate water pixels
+
+    Returns:
+        Derived elevation map and gradient and weights
+    """
     h5i = h5py.File(h5file,'r')
     dem=h5i['dem'][:]
     grd=h5i['grad'][:]
@@ -42,6 +47,16 @@ def getdem(key,h5file='descending.h5',weight=None,water=None):
 
 
 def getgrad(amps,grd,mask=None):
+    """Calculates gradient of elevation from amplitude image
+
+    Args:
+        amps: input amplitude image
+        grd: gradient of predefined DEM
+        mask: mask that indicates what pixels to omit in the inversion
+
+    Returns:
+        Derived gradient
+    """
     if mask is None:
         mask=(np.zeros(amps.shape)==1)
     grddef=np.ones(amps.shape)*np.nan
@@ -59,6 +74,17 @@ def getgrad(amps,grd,mask=None):
 
 
 def getabc_reg(amps,dem,grd,weight=None):
+    """Inversion to calculate values to scale amplitude image into gradient (of elevation) values and integration constants
+
+    Args:
+        amps: input amplitude image
+        dem: predefined DEM
+        grd: gradient of predefined DEM
+        weight: array with weights for the pixels in the inversion
+
+    Returns:
+        Derived elevation map, values to scale amplitude image, integration constants and weights
+    """
     ampcp=np.copy(amps)
     demcp=np.copy(dem)
     grdcp=np.copy(grd)
@@ -112,3 +138,39 @@ def getabc_reg(amps,dem,grd,weight=None):
         demdef[j,:]=np.matmul(G,sol)
         
     return demdef,adef,bdef,cdef,weights
+
+def get_timeseries(demdefs,lam=0.001):
+    """Inversion to calculate elevation changes using SBAS strategy
+
+    Args:
+        demdefs: elevation maps result of the inversion
+        lam: regularization constant
+        
+    Returns:
+        Timeseries with elevation changes
+    """
+    demdefs=np.array(demdefs)
+    difs=[]
+    indexes=[]
+    for i in range(demdefs.shape[0]-1):
+        ref=demdefs[i,:,:]
+        for j in range(i+1,demdefs.shape[0]):
+            demdef=demdefs[j,:,:]
+            difs.append(demdef-ref)
+            indexes.append((i,j))
+    difs=np.array(difs)
+
+    timeseries=np.ones(demdefs.shape)*np.nan
+    for i in range(demdefs.shape[1]):
+        for j in range(demdefs.shape[2]):
+            G=np.zeros((difs.shape[0]+demdefs.shape[0],demdefs.shape[0]))
+            d=np.zeros((difs.shape[0],))
+            for m,index in enumerate(indexes):
+                d[m]=difs[m,i,j]
+                k,l=index
+                G[m,k]=-1
+                G[m,l]=1
+
+            sol = np.linalg.lstsq(G.T@G, G.T@d, rcond=None)[0]
+            timeseries[:,i,j]=sol
+    return timeseries
