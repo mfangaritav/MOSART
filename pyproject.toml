@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mosart"
-version = "1.0.1"
+version = "1.0.2"
 description = "Morphology from SAR tool"
 readme = "README.md"
 requires-python = ">=3.8"
