@@ -48,14 +48,6 @@ python -m pip install -e .
 python -m pip install mosart
 ```
 
-## jupyterlab (Optional)
-
-If you want to use the notebook that use examples [notebook](Process_ALOS.ipynb) and [notebook](Process_Sen1.ipynb) here you should install jupyterlab.
-
-```console
-conda install jupyterlab
-```
-
 ## Obtain elevation changes:
 
 This repository contains two examples using [ALOS-1](Process_ALOS.ipynb) and [Sentinel-1](Process_Sen1.ipynb) images that illustrate the full workflow retrieving elevation changes for the 2008 Okmok caldera eruption and the 2016--2017 Bogoslof eruption.
