@@ -30,7 +30,7 @@ We recommend using Anaconda or Miniconda to create an environment in which to in
 conda create -n mosart python=3.12
 conda activate mosart
 conda install gdal
-pip install mosart
+python -m pip install mosart
 ```
 
 ## Full Installation
@@ -53,7 +53,7 @@ python -m pip install mosart
 This repository contains two examples using [ALOS-1](Process_ALOS.ipynb) and [Sentinel-1](Process_Sen1.ipynb) images that illustrate the full workflow retrieving elevation changes for the 2008 Okmok caldera eruption and the 2016--2017 Bogoslof eruption.
 
 > [!IMPORTANT]
-> If you want to run these example you should install jupyterlab.
+> If you want to run these examples you should install jupyterlab.
 ```console
 conda install jupyterlab
 ```
