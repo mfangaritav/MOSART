@@ -6,6 +6,9 @@
 <a target="_blank" href="https://colab.research.google.com/github/mfangaritav/MOSART/blob/main/Process_ALOS.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
+<a target="_blank" href="https://colab.research.google.com/github/mfangaritav/MOSART/blob/main/Process_Sen1.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
 
 ### Authors: Mario Angarita, Ronni Grapenthin, Franz Meyer, Simon Plank and Michael Christoffersen
 
@@ -24,7 +27,9 @@ the user can also provide longitude and latitude datasets to georeference the re
 We recommend using Anaconda or Miniconda to create an environment in which to install MoSARt to prevent dependency conflicts.
 
 ```console
-conda create --n mosart
+conda create -n mosart python=3.12
+conda activate mosart
+conda install gdal
 pip install mosart
 ```
 
@@ -36,14 +41,30 @@ to install [hyp3-isce2](https://github.com/ASFHyP3/hyp3-isce2).
 ```console
 git clone https://github.com/ASFHyP3/hyp3-isce2.git
 cd hyp3-isce2
-mamba env create -f environment.yml
-mamba activate hyp3-isce2
+git checkout tags/v2.0.0
+conda env create -f environment.yml
+conda activate hyp3-isce2
 python -m pip install -e .
+python -m pip install mosart
+```
+
+## jupyterlab (Optional)
+
+If you want to use the notebook that use examples [notebook](Process_ALOS.ipynb) and [notebook](Process_Sen1.ipynb) here you should install jupyterlab.
+
+```console
+conda install jupyterlab
 ```
 
 ## Obtain elevation changes:
 
-This repository contains a [notebook](Process_ALOS.ipynb) to illustrate the full workflow from MoSARt to retrieve elevation changes for the 2008 Okmok caldera eruption.
+This repository contains two examples using [ALOS-1](Process_ALOS.ipynb) and [Sentinel-1](Process_Sen1.ipynb) images that illustrate the full workflow retrieving elevation changes for the 2008 Okmok caldera eruption and the 2016--2017 Bogoslof eruption.
+
+> [!IMPORTANT]
+> If you want to run these example you should install jupyterlab.
+```console
+conda install jupyterlab
+```
 
 # Publication:
 

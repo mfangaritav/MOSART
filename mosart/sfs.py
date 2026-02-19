@@ -397,7 +397,8 @@ def coregistration_bursts(bursts_list, output='projections.h5',index=1):
     lista = open(bursts_list, 'r')
     lineas = lista.readlines()
     lista.close()
-    lineas = sorted(list(set([linea[0:-1] for linea in lineas])))
+    #lineas = sorted(list(set([linea[0:-1] for linea in lineas])))
+    lineas = sorted(list(set([linea[0:43] for linea in lineas if len(linea)>10])))
     polarizations = list(set([linea.split('_')[4] for linea in lineas]))
     ids = list(set([linea[0:13] for linea in lineas]))
 
